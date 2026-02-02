@@ -227,7 +227,7 @@ def generate_article(product: dict) -> dict:
 
     print("📝 Gemini APIで記事を生成中...")
     
-    model = genai.GenerativeModel('gemini-pro')
+    model = genai.GenerativeModel("gemini-1.5-flash")
     response = model.generate_content(prompt)
     
     html_content = response.text
