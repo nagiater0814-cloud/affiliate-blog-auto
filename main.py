@@ -227,10 +227,27 @@ def generate_article(product: dict) -> dict:
 
     print("📝 Gemini APIで記事を生成中...")
     
-    model = genai.GenerativeModel("models/gemini-pro")
-    response = model.generate_content(prompt)
+    # REST API を直接呼び出し（より安定した方法）
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
     
-    html_content = response.text
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt}
+                ]
+            }
+        ]
+    }
+    
+    response = requests.post(api_url, json=payload)
+    
+    if response.status_code != 200:
+        print(f"API Error: {response.status_code} - {response.text}")
+        raise Exception(f"Gemini API Error: {response.status_code}")
+    
+    result = response.json()
+    html_content = result["candidates"][0]["content"]["parts"][0]["text"]
     
     # HTMLからタイトルを抽出
     import re
