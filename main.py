@@ -240,11 +240,26 @@ def generate_article(product: dict) -> dict:
         ]
     }
     
-    response = requests.post(api_url, json=payload)
+    # リトライロジック（レート制限対応）
+    import time
+    max_retries = 3
+    
+    for attempt in range(max_retries):
+        response = requests.post(api_url, json=payload)
+        
+        if response.status_code == 200:
+            break
+        elif response.status_code == 429:
+            wait_time = 60  # 60秒待機
+            print(f"⏳ レート制限に達しました。{wait_time}秒待機中... (試行 {attempt + 1}/{max_retries})")
+            time.sleep(wait_time)
+        else:
+            print(f"API Error: {response.status_code} - {response.text}")
+            raise Exception(f"Gemini API Error: {response.status_code}")
     
     if response.status_code != 200:
         print(f"API Error: {response.status_code} - {response.text}")
-        raise Exception(f"Gemini API Error: {response.status_code}")
+        raise Exception(f"Gemini API Error: {response.status_code} - レート制限を超過しました。後でお試しください。")
     
     result = response.json()
     html_content = result["candidates"][0]["content"]["parts"][0]["text"]
