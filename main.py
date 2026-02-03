@@ -23,32 +23,32 @@ model = genai.GenerativeModel('gemini-flash-latest')
 # ==========================================
 DAILY_THEMES = {
     0: { "category": "睡眠・寝具", "products": [
-        {"id": "MON-1", "name": "高級マットレス", "target": "睡眠の質向上、朝の腰痛", "keywords": ["マットレス", "腰痛", "睡眠改善"], "pexels_query": "sleeping bedroom mattress"},
-        {"id": "MON-2", "name": "安眠枕", "target": "首の痛み、ストレートネック", "keywords": ["枕", "首こり", "ストレートネック"], "pexels_query": "pillow sleeping comfort"}
+        {"id": "MON-1", "name": "高級マットレス", "target": "睡眠の質向上、朝の腰痛", "keywords": ["マットレス", "腰痛", "睡眠改善"], "pexels_query": "sleeping bedroom mattress", "problem_query": "back pain tired morning"},
+        {"id": "MON-2", "name": "安眠枕", "target": "首の痛み、ストレートネック", "keywords": ["枕", "首こり", "ストレートネック"], "pexels_query": "pillow sleeping comfort", "problem_query": "neck pain stress headache"}
     ]},
     1: { "category": "デスクワーク", "products": [
-        {"id": "TUE-1", "name": "ワークチェア", "target": "在宅ワークの腰痛、坐骨神経痛", "keywords": ["デスクチェア", "腰痛", "テレワーク"], "pexels_query": "office chair desk work"},
-        {"id": "TUE-2", "name": "姿勢矯正クッション", "target": "猫背、骨盤の歪み", "keywords": ["クッション", "姿勢矯正", "骨盤ケア"], "pexels_query": "cushion office ergonomic"}
+        {"id": "TUE-1", "name": "ワークチェア", "target": "在宅ワークの腰痛、坐骨神経痛", "keywords": ["デスクチェア", "腰痛", "テレワーク"], "pexels_query": "office chair desk work", "problem_query": "back pain office sitting"},
+        {"id": "TUE-2", "name": "姿勢矯正クッション", "target": "猫背、骨盤の歪み", "keywords": ["クッション", "姿勢矯正", "骨盤ケア"], "pexels_query": "cushion office ergonomic", "problem_query": "bad posture slouching desk"}
     ]},
     2: { "category": "運動・ストレッチ", "products": [
-        {"id": "WED-1", "name": "ストレッチポール", "target": "背中の張り、肩こり", "keywords": ["ストレッチポール", "肩こり", "筋膜リリース"], "pexels_query": "foam roller stretching"},
-        {"id": "WED-2", "name": "ヨガマット", "target": "自宅での運動習慣", "keywords": ["ヨガマット", "宅トレ", "運動不足"], "pexels_query": "yoga mat exercise"}
+        {"id": "WED-1", "name": "ストレッチポール", "target": "背中の張り、肩こり", "keywords": ["ストレッチポール", "肩こり", "筋膜リリース"], "pexels_query": "foam roller stretching", "problem_query": "shoulder pain stiff muscle"},
+        {"id": "WED-2", "name": "ヨガマット", "target": "自宅での運動習慣", "keywords": ["ヨガマット", "宅トレ", "運動不足"], "pexels_query": "yoga mat exercise", "problem_query": "sedentary lifestyle tired"}
     ]},
     3: { "category": "栄養・健康食", "products": [
-        {"id": "THU-1", "name": "プロテイン", "target": "筋肉維持、疲労回復", "keywords": ["プロテイン", "疲労回復", "栄養補給"], "pexels_query": "protein powder fitness"},
-        {"id": "THU-2", "name": "関節サプリ", "target": "膝の違和感、軟骨ケア", "keywords": ["サプリメント", "膝の痛み", "関節ケア"], "pexels_query": "supplements health"}
+        {"id": "THU-1", "name": "プロテイン", "target": "筋肉維持、疲労回復", "keywords": ["プロテイン", "疲労回復", "栄養補給"], "pexels_query": "protein powder fitness", "problem_query": "tired exhausted fatigue"},
+        {"id": "THU-2", "name": "関節サプリ", "target": "膝の違和感、軟骨ケア", "keywords": ["サプリメント", "膝の痛み", "関節ケア"], "pexels_query": "supplements health", "problem_query": "knee pain walking stairs"}
     ]},
     4: { "category": "休息・入浴", "products": [
-        {"id": "FRI-1", "name": "リカバリーウェア", "target": "着るだけで疲労回復", "keywords": ["リカバリーウェア", "睡眠の質", "疲労回復"], "pexels_query": "relaxing sleep recovery"},
-        {"id": "FRI-2", "name": "入浴剤", "target": "冷え性、深部体温", "keywords": ["入浴剤", "温活", "リラックス"], "pexels_query": "bath relaxation spa"}
+        {"id": "FRI-1", "name": "リカバリーウェア", "target": "着るだけで疲労回復", "keywords": ["リカバリーウェア", "睡眠の質", "疲労回復"], "pexels_query": "relaxing sleep recovery", "problem_query": "exhausted tired stress"},
+        {"id": "FRI-2", "name": "入浴剤", "target": "冷え性、深部体温", "keywords": ["入浴剤", "温活", "リラックス"], "pexels_query": "bath relaxation spa", "problem_query": "cold feet stress tension"}
     ]},
     5: { "category": "足腰ケア", "products": [
-        {"id": "SAT-1", "name": "膝サポーター", "target": "階段の上り下りが辛い", "keywords": ["サポーター", "膝痛", "ウォーキング"], "pexels_query": "knee support brace"},
-        {"id": "SAT-2", "name": "インソール", "target": "立ち仕事の足の疲れ", "keywords": ["インソール", "足の疲れ", "扁平足"], "pexels_query": "shoe insole feet"}
+        {"id": "SAT-1", "name": "膝サポーター", "target": "階段の上り下りが辛い", "keywords": ["サポーター", "膝痛", "ウォーキング"], "pexels_query": "knee support brace", "problem_query": "knee pain elderly walking"},
+        {"id": "SAT-2", "name": "インソール", "target": "立ち仕事の足の疲れ", "keywords": ["インソール", "足の疲れ", "扁平足"], "pexels_query": "shoe insole feet", "problem_query": "foot pain standing work"}
     ]},
     6: { "category": "健康コラム", "products": [
-        {"id": "SUN-1", "name": "健康習慣まとめ", "target": "1週間の振り返り", "keywords": ["健康習慣", "生活改善", "予防医学"], "pexels_query": "healthy lifestyle wellness"},
-        {"id": "SUN-2", "name": "セルフケア総集編", "target": "自宅でできるケア", "keywords": ["セルフケア", "マッサージ", "ストレッチ"], "pexels_query": "self care massage"}
+        {"id": "SUN-1", "name": "健康習慣まとめ", "target": "1週間の振り返り", "keywords": ["健康習慣", "生活改善", "予防医学"], "pexels_query": "healthy lifestyle wellness", "problem_query": "unhealthy lifestyle stress"},
+        {"id": "SUN-2", "name": "セルフケア総集編", "target": "自宅でできるケア", "keywords": ["セルフケア", "マッサージ", "ストレッチ"], "pexels_query": "self care massage", "problem_query": "body pain tension stress"}
     ]}
 }
 
@@ -242,21 +242,30 @@ def main():
     article = generate_article(product)
     
     if article:
-        # 5. 複数画像取得・アップロード
-        print(f"\n🖼️ 画像処理")
-        img_urls = get_pexels_images(product['pexels_query'], count=3)
+        # 5. 複数画像取得・アップロード（危機感 + 解決策のバランス）
+        print(f"\n🖼️ 画像処理（問題提起 + 解決策）")
         
-        # アイキャッチ用（1枚目）
+        # 解決策画像（アイキャッチ + 本文用1枚）
+        solution_urls = get_pexels_images(product['pexels_query'], count=2)
+        
+        # 問題・危機感画像（本文用1枚）
+        problem_query = product.get('problem_query', product['pexels_query'])
+        problem_urls = get_pexels_images(problem_query, count=1)
+        
+        # アイキャッチ用（解決策画像の1枚目）
         featured_media_id = None
-        if img_urls:
-            featured_media_id = upload_image_to_wp(img_urls[0], f"{product['name']} イメージ")
+        if solution_urls:
+            featured_media_id = upload_image_to_wp(solution_urls[0], f"{product['name']} イメージ")
         
-        # 本文挿入用の画像をアップロード（2枚目以降）
+        # 本文挿入用の画像をアップロード
+        # 順序: 危機感画像 → 解決策画像（問題→解決の流れ）
+        content_images = problem_urls + solution_urls[1:]
         inserted_images = []
-        for i, url in enumerate(img_urls[1:], start=2):
-            mid = upload_image_to_wp(url, f"{product['name']} 画像{i}")
+        
+        for i, url in enumerate(content_images):
+            label = "問題" if i == 0 else "解決策"
+            mid = upload_image_to_wp(url, f"{product['name']} {label}画像")
             if mid:
-                # WordPressの画像URLを取得
                 try:
                     auth = (WP_USER, WP_APP_PASSWORD)
                     res = requests.get(f"{WP_URL}/wp-json/wp/v2/media/{mid}", auth=auth)
