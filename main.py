@@ -227,8 +227,44 @@ def generate_article(product: dict) -> dict:
 
     print("📝 Gemini APIで記事を生成中...")
     
-    # REST API を直接呼び出し（より安定した方法）
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={GEMINI_API_KEY}"
+    # まず利用可能なモデルを確認
+    list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
+    list_response = requests.get(list_url)
+    
+    if list_response.status_code == 200:
+        models = list_response.json().get("models", [])
+        print("📋 利用可能なモデル一覧:")
+        generate_models = []
+        for m in models:
+            if "generateContent" in m.get("supportedGenerationMethods", []):
+                model_name = m["name"].replace("models/", "")
+                print(f"   - {model_name}")
+                generate_models.append(model_name)
+        
+        # 優先順位でモデルを選択
+        preferred = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro", "gemini-1.0-pro"]
+        selected_model = None
+        for p in preferred:
+            for gm in generate_models:
+                if p in gm:
+                    selected_model = gm
+                    break
+            if selected_model:
+                break
+        
+        if not selected_model and generate_models:
+            selected_model = generate_models[0]
+        
+        if not selected_model:
+            raise Exception("利用可能なモデルが見つかりません")
+        
+        print(f"✅ 選択されたモデル: {selected_model}")
+    else:
+        print(f"モデル一覧取得失敗: {list_response.status_code} - {list_response.text}")
+        selected_model = "gemini-1.5-flash"  # デフォルト
+    
+    # REST API を直接呼び出し
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{selected_model}:generateContent?key={GEMINI_API_KEY}"
     
     payload = {
         "contents": [
