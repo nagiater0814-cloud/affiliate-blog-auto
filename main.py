@@ -228,7 +228,7 @@ def generate_article(product: dict) -> dict:
     print("📝 Gemini APIで記事を生成中...")
     
     # REST API を直接呼び出し（より安定した方法）
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={GEMINI_API_KEY}"
     
     payload = {
         "contents": [
