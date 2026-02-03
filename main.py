@@ -61,6 +61,7 @@ def select_product():
     theme = DAILY_THEMES[weekday]
     product = random.choice(theme["products"])
     print(f"📅 今日は {['月','火','水','木','金','土','日'][weekday]}曜日 - カテゴリ:【{theme['category']}】")
+    print(f"📦 選定商材: {product['name']}")
     return product, theme['category']
 
 # ==========================================
@@ -91,7 +92,8 @@ def generate_article(product):
         parts = response.text.split("[[DELIMITER]]")
         
         if len(parts) < 3:
-            return None # 失敗
+            print(f"⚠️ 記事パース失敗: パーツ数={len(parts)}")
+            return None
 
         return {
             "seo_title": parts[0].strip(),
@@ -105,70 +107,86 @@ def generate_article(product):
 # ==========================================
 # 3. カテゴリ・タグ・画像処理
 # ==========================================
-def get_id_by_name(endpoint, name):
+def get_or_create_term(endpoint, name):
     """カテゴリやタグの名前からIDを取得（なければ作成）"""
     auth = (WP_USER, WP_APP_PASSWORD)
+    
+    print(f"   🔍 {endpoint}を検索中: {name}")
     
     # 1. 検索
     try:
         search_url = f"{WP_URL}/wp-json/wp/v2/{endpoint}?search={name}"
         res = requests.get(search_url, auth=auth)
         if res.status_code == 200 and len(res.json()) > 0:
-            # 完全一致を確認
             for item in res.json():
                 if item['name'] == name:
+                    print(f"   ✅ 既存{endpoint}を発見: ID={item['id']}")
                     return item['id']
-    except:
-        pass
+    except Exception as e:
+        print(f"   ⚠️ 検索エラー: {e}")
 
     # 2. 作成
+    print(f"   📝 新規{endpoint}を作成中: {name}")
     try:
         create_url = f"{WP_URL}/wp-json/wp/v2/{endpoint}"
         res = requests.post(create_url, json={"name": name}, auth=auth)
         if res.status_code == 201:
-            return res.json()['id']
-    except:
-        pass
+            new_id = res.json()['id']
+            print(f"   ✅ 作成成功: ID={new_id}")
+            return new_id
+        else:
+            print(f"   ❌ 作成失敗: {res.status_code} - {res.text}")
+    except Exception as e:
+        print(f"   ❌ 作成エラー: {e}")
     
     return None
 
 def get_tag_ids(keywords):
     """キーワードリストからタグIDのリストを取得"""
+    print(f"🏷️ タグ処理開始: {keywords}")
     tag_ids = []
-    print(f"🏷️ タグ処理中: {keywords}")
     for kw in keywords:
-        tid = get_id_by_name("tags", kw)
+        tid = get_or_create_term("tags", kw)
         if tid:
             tag_ids.append(tid)
+    print(f"   → 取得したタグID: {tag_ids}")
     return tag_ids
 
 def get_pexels_image(query):
-    url = f"https://api.pexels.com/v1/search?query={query}&per_page=1&orientation=landscape&size=large2x"
+    print(f"🖼️ 画像検索中: {query}")
+    url = f"https://api.pexels.com/v1/search?query={query}&per_page=1&orientation=landscape&size=large"
     headers = {"Authorization": PEXELS_API_KEY}
     try:
         res = requests.get(url, headers=headers)
         if res.status_code == 200 and res.json().get('photos'):
-            return res.json()['photos'][0]['src']['large2x']
-    except:
-        pass
+            img_url = res.json()['photos'][0]['src']['large2x']
+            print(f"   ✅ 画像取得成功")
+            return img_url
+    except Exception as e:
+        print(f"   ⚠️ 画像エラー: {e}")
     return None
 
 def upload_image_to_wp(image_url, alt_text):
-    if not image_url: return None
+    if not image_url:
+        return None
+    print(f"📤 画像アップロード中...")
     try:
         img_data = requests.get(image_url).content
         filename = f"wp_auto_{int(time.time())}.jpg"
         media_url = f"{WP_URL}/wp-json/wp/v2/media"
-        headers = { "Content-Type": "image/jpeg", "Content-Disposition": f'attachment; filename="{filename}"' }
+        headers = {"Content-Type": "image/jpeg", "Content-Disposition": f'attachment; filename="{filename}"'}
         auth = (WP_USER, WP_APP_PASSWORD)
         res = requests.post(media_url, headers=headers, data=img_data, auth=auth)
         if res.status_code == 201:
             media_id = res.json()['id']
-            # SEO対策: Altテキスト設定
+            # Alt テキスト設定
             requests.post(f"{WP_URL}/wp-json/wp/v2/media/{media_id}", json={"alt_text": alt_text}, auth=auth)
+            print(f"   ✅ アップロード成功: ID={media_id}")
             return media_id
-    except:
-        pass
+        else:
+            print(f"   ❌ アップロード失敗: {res.status_code}")
+    except Exception as e:
+        print(f"   ❌ アップロードエラー: {e}")
     return None
 
 def post_to_wordpress(article_data, media_id, category_id, tag_ids):
@@ -180,77 +198,79 @@ def post_to_wordpress(article_data, media_id, category_id, tag_ids):
         "content": article_data['content'],
         "status": "draft",
         "featured_media": media_id if media_id else 0,
-        "categories": [category_id] if category_id else [],  # ★カテゴリID
-        "tags": tag_ids,                                     # ★タグID配列
-        "excerpt": article_data['meta_desc'],                # ★ここが重要（SEO説明文）
-        "meta": {
-            # Cocoon用予備設定（効かなくてもexcerptが働くのでOK）
-            "the_page_seo_title": article_data['seo_title'],
-            "the_page_meta_description": article_data['meta_desc'],
-        }
+        "categories": [category_id] if category_id else [],
+        "tags": tag_ids if tag_ids else [],
+        "excerpt": article_data['meta_desc'],
     }
+    
+    print(f"   📋 投稿データ: カテゴリID={category_id}, タグ数={len(tag_ids)}")
     
     res = requests.post(post_url, json=payload, auth=(WP_USER, WP_APP_PASSWORD))
     if res.status_code == 201:
-        print(f"🎉 投稿成功！ 下書きURL: {res.json().get('link')}")
-        print(f"   SEO情報: 抜粋(Description)を設定しました")
-        print(f"   カテゴリID: {category_id}, タグ数: {len(tag_ids)}")
+        post_data = res.json()
+        print(f"🎉 投稿成功！")
+        print(f"   下書きURL: {post_data.get('link')}")
+        print(f"   投稿ID: {post_data.get('id')}")
+        print(f"   カテゴリ: {post_data.get('categories')}")
+        print(f"   タグ: {post_data.get('tags')}")
     else:
-        print(f"❌ 投稿失敗: {res.text}")
+        print(f"❌ 投稿失敗: {res.status_code} - {res.text}")
 
 # ==========================================
 # 4. メイン処理
 # ==========================================
 def main():
-    print("--- 自動投稿システム (SEO・カテゴリ・タグ修正版) ---")
+    print("=" * 50)
+    print("🚀 自動投稿システム v2.0 (カテゴリ・タグ自動設定)")
+    print("=" * 50)
     
     # 1. ネタ決め
     product, category_name = select_product()
     
     # 2. カテゴリID取得（なければ作る）
-    print(f"📂 カテゴリ準備: {category_name}")
-    category_id = get_id_by_name("categories", category_name)
+    print(f"\n📂 カテゴリ処理: {category_name}")
+    category_id = get_or_create_term("categories", category_name)
     
     # 3. タグID取得（なければ作る）
+    print(f"\n🏷️ タグ処理")
     tag_ids = get_tag_ids(product['keywords'])
     
     # 4. 記事生成
+    print(f"\n📝 記事生成")
     article = generate_article(product)
     
     if article:
-        # 5. 画像取得
-        print("🖼️ 画像取得中...")
+        # 5. 画像取得・アップロード
+        print(f"\n🖼️ 画像処理")
         img_url = get_pexels_image(product['pexels_query'])
         media_id = upload_image_to_wp(img_url, f"{product['name']} イメージ")
 
-        # 6. 本文加工（広告枠・強制画像挿入）
+        # 6. 本文加工（広告枠）
         content = article['content']
-        
-        # 広告枠
         affiliate_box = f"""
-        <div style="margin: 40px 0; padding: 30px; background-color: #f9f9f9; border: 3px solid #66cdaa; border-radius: 10px; text-align: center;">
-            <h3 style="margin-top:0; color:#2e8b57;">▼整体師おすすめの{product['name']}</h3>
-            <p>詳細はこちら</p>
-            <div style="margin-top:20px; color:#d32f2f;">（ここに広告リンク）</div>
-        </div>
-        """
+<div style="margin: 40px 0; padding: 30px; background-color: #f9f9f9; border: 3px solid #66cdaa; border-radius: 10px; text-align: center;">
+    <h3 style="margin-top:0; color:#2e8b57;">▼整体師おすすめの{product['name']}</h3>
+    <p>詳細はこちら</p>
+    <div style="margin-top:20px; color:#d32f2f;">（ここに広告リンク）</div>
+</div>
+"""
         if "[[AFFILIATE_AREA]]" in content:
             content = content.replace("[[AFFILIATE_AREA]]", affiliate_box)
         else:
             content += affiliate_box
-            
-        # 画像強制挿入（見出しH2の後ろ）
-        if media_id: # 同じ画像を本文にも使い回す（簡易化のため）
-            # ※本来は別の画像が良いが、まずはエラーなく動くことを優先
-            pass 
 
         article['content'] = content
 
         # 7. 投稿
+        print(f"\n📮 WordPress投稿")
         post_to_wordpress(article, media_id, category_id, tag_ids)
 
     else:
         print("❌ 記事生成失敗")
+    
+    print("\n" + "=" * 50)
+    print("✅ 処理完了")
+    print("=" * 50)
 
 if __name__ == "__main__":
     main()
