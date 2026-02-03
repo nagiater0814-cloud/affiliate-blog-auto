@@ -241,8 +241,8 @@ def generate_article(product: dict) -> dict:
                 print(f"   - {model_name}")
                 generate_models.append(model_name)
         
-        # 優先順位でモデルを選択
-        preferred = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro", "gemini-1.0-pro"]
+        # 優先順位でモデルを選択（軽量モデルを優先）
+        preferred = ["gemini-2.0-flash-lite", "gemini-flash-lite-latest", "gemini-2.0-flash", "gemini-flash-latest"]
         selected_model = None
         for p in preferred:
             for gm in generate_models:
