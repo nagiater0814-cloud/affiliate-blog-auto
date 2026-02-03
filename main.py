@@ -15,8 +15,8 @@ WP_APP_PASSWORD = os.environ.get("WP_APP_PASSWORD")
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Gemini設定 (gemini-flash-latest を使用)
 genai.configure(api_key=GEMINI_API_KEY)
+# ★最新の軽量モデルを指定
 model = genai.GenerativeModel('gemini-flash-latest')
 
 # ==========================================
@@ -66,61 +66,87 @@ def select_product():
     return product
 
 # ==========================================
-# 2. 記事作成 (構成指定あり)
+# 2. 記事作成 (SEO・Cocoon対応版)
 # ==========================================
 def generate_article(product):
-    print("📝 Gemini APIで記事を構成中...")
+    print("📝 Gemini APIでSEO完全対応の記事を構成中...")
 
-    # ★ここがポイント：記事の中に「画像の場所」と「広告の場所」を指定させる
     prompt = f"""
-    あなたは実務歴8年の現役整体師です。
-    以下の商品について、読者をひきつけるブログ記事をHTML形式で書いてください。
+    あなたはSEOマーケティングに精通した実務歴8年の整体師です。
+    以下の商品について、検索上位を狙えるブログ記事を作成してください。
 
     【商品】{product['name']}
     【ターゲット】{product['target']}
+    【キーワード】{', '.join(product['keywords'])}
 
-    【構成ルール】
-    以下の順番とタグ構成を必ず守ってください。
-    
-    1. **タイトル** (<h1>タグ)
-    2. **導入** (読者の悩みに共感する文章)
-    3. **見出し** (<h2>原因解説：...</h2>)
-    4. **本文** (医学的な解説)
-    5. **[[IMAGE_CAUSE]]** (★ここに「[[IMAGE_CAUSE]]」という文字列をそのまま書いてください。後で画像を挿入します)
-    6. **見出し** (<h2>解決策：{product['name']}の活用</h2>)
-    7. **本文** (商品の紹介)
-    8. **[[AFFILIATE_AREA]]** (★ここに「[[AFFILIATE_AREA]]」という文字列をそのまま書いてください。後で広告枠を挿入します)
-    9. **まとめ** (応援メッセージ)
+    【出力構成】
+    以下の4つのセクションを「[[DELIMITER]]」という文字列で区切って出力してください。
 
-    【出力ルール】
-    - HTMLの <body> タグの中身のみ出力
-    - 文字数は2000文字程度
-    - 専門用語を使いつつ、親しみやすいトーンで
+    1. SEOタイトル
+       - 検索結果に表示されるタイトル。
+       - **32文字以内**厳守。
+       - 重要なキーワードを左側に配置。
+    [[DELIMITER]]
+    2. メタディスクリプション
+       - 検索結果のスニペット用。
+       - **120文字前後**。
+       - クリックしたくなるような要約。
+    [[DELIMITER]]
+    3. メタキーワード
+       - カンマ区切りで3〜5個（例: 腰痛,マットレス,快眠）。
+    [[DELIMITER]]
+    4. 記事本文（HTML）
+       - <body>タグの中身のみ。
+       - 構成:
+         - 導入（共感）
+         - <h2>原因解説...</h2>
+         - 解説本文
+         - [[IMAGE_CAUSE]] (←この文字列をそのまま書く)
+         - <h2>解決策...</h2>
+         - 商品紹介本文
+         - [[AFFILIATE_AREA]] (←この文字列をそのまま書く)
+         - まとめ
+
+    ※ JSONではなく、プレーンテキストで出力してください。
     """
 
     try:
         response = model.generate_content(prompt)
         raw_text = response.text
-        # 不要なマークダウン記号を削除
-        html_content = raw_text.replace("```html", "").replace("```", "").strip()
         
-        # タイトル抽出
-        title_match = re.search(r"<h1>(.*?)</h1>", html_content, re.DOTALL)
-        if title_match:
-            title = title_match.group(1)
-            content = html_content.replace(title_match.group(0), "").strip()
-        else:
-            title = f"整体師が教える！{product['name']}の選び方"
-            content = html_content
+        # 区切り文字で分割
+        parts = raw_text.split("[[DELIMITER]]")
+        
+        if len(parts) < 4:
+            print("⚠️ データの分割に失敗しました。簡易モードで動作します。")
+            return {
+                "seo_title": f"整体師が選ぶ！{product['name']}おすすめガイド",
+                "meta_desc": f"{product['name']}の効果と選び方を整体師が解説。{product['target']}でお悩みの方へ。",
+                "meta_kw": ",".join(product['keywords']),
+                "content": raw_text.replace("```html", "").replace("```", "")
+            }
 
-        return {"title": title, "content": content}
+        seo_title = parts[0].strip().replace("SEOタイトル", "").replace(":", "").strip()
+        meta_desc = parts[1].strip().replace("メタディスクリプション", "").replace(":", "").strip()
+        meta_kw = parts[2].strip().replace("メタキーワード", "").replace(":", "").strip()
+        content = parts[3].strip().replace("記事本文", "").replace("HTML", "").replace(":", "").replace("```html", "").replace("```", "").strip()
+
+        print(f"✅ SEOデータ生成完了")
+        print(f"   SEO Title: {seo_title} ({len(seo_title)}文字)")
+        
+        return {
+            "seo_title": seo_title,
+            "meta_desc": meta_desc,
+            "meta_kw": meta_kw,
+            "content": content
+        }
 
     except Exception as e:
         print(f"❌ Geminiエラー: {e}")
         return None
 
 # ==========================================
-# 3. 画像＆投稿処理
+# 3. 画像＆投稿処理 (Cocoon対応)
 # ==========================================
 def get_pexels_image(query, size="large2x"):
     print(f"📷 画像検索: {query}")
@@ -134,8 +160,7 @@ def get_pexels_image(query, size="large2x"):
         print(f"⚠️ 画像エラー: {e}")
     return None
 
-def upload_image_to_wp(image_url):
-    """画像をWPにアップロードしてIDとURLを返す"""
+def upload_image_to_wp(image_url, alt_text):
     if not image_url: return None, None
     try:
         img_data = requests.get(image_url).content
@@ -146,80 +171,105 @@ def upload_image_to_wp(image_url):
             "Content-Disposition": f'attachment; filename="{filename}"'
         }
         auth = (WP_USER, WP_APP_PASSWORD)
+        
         res = requests.post(media_url, headers=headers, data=img_data, auth=auth)
         if res.status_code == 201:
             data = res.json()
-            return data['id'], data['source_url']
+            media_id = data['id']
+            # SEO対策: 画像のAltテキストを設定
+            requests.post(
+                f"{WP_URL}/wp-json/wp/v2/media/{media_id}",
+                json={"alt_text": alt_text},
+                auth=auth
+            )
+            return media_id, data['source_url']
     except Exception as e:
         print(f"⚠️ アップロード失敗: {e}")
     return None, None
 
-def post_to_wordpress(title, content, featured_media_id):
+def post_to_wordpress(article_data, featured_media_id):
     print("🚀 WordPressへ投稿処理開始...")
     post_url = f"{WP_URL}/wp-json/wp/v2/posts"
     
+    # ★ここが重要：Cocoon用のカスタムフィールド設定
+    # the_page_seo_title: SEOタイトル
+    # the_page_meta_description: メタディスクリプション
+    # the_page_meta_keywords: メタキーワード
+    
     payload = {
-        "title": title,
-        "content": content,
+        "title": article_data['seo_title'], # 記事タイトルもSEOタイトルに合わせる
+        "content": article_data['content'],
         "status": "draft",
-        "featured_media": featured_media_id if featured_media_id else 0
+        "featured_media": featured_media_id if featured_media_id else 0,
+        "excerpt": article_data['meta_desc'], # 抜粋にも入れる
+        "meta": {
+            "the_page_seo_title": article_data['seo_title'],
+            "the_page_meta_description": article_data['meta_desc'],
+            "the_page_meta_keywords": article_data['meta_kw']
+        }
     }
     
-    res = requests.post(post_url, json=payload, auth=(WP_USER, WP_APP_PASSWORD))
-    if res.status_code == 201:
-        print(f"🎉 投稿成功！ 下書きURL: {res.json().get('link')}")
-    else:
-        print(f"❌ 投稿失敗: {res.text}")
+    # メタデータの送信を試みる
+    try:
+        res = requests.post(post_url, json=payload, auth=(WP_USER, WP_APP_PASSWORD))
+        if res.status_code == 201:
+            print(f"🎉 投稿成功！ 下書きURL: {res.json().get('link')}")
+            print("   SEO設定（Cocoon）も完了しました")
+        else:
+            print(f"❌ 投稿失敗: {res.text}")
+    except Exception as e:
+        print(f"❌ 送信エラー: {e}")
 
 # ==========================================
-# 4. メイン処理 (画像を2枚使う)
+# 4. メイン処理
 # ==========================================
 def main():
-    print("--- 自動投稿システム開始 (画像強化版) ---")
+    print("--- 自動投稿システム開始 (SEO完全版) ---")
     product = select_product()
     article = generate_article(product)
     
     if article:
         content = article['content']
 
-        # --- 画像①：アイキャッチ用（おしゃれな写真） ---
-        print("🖼️ アイキャッチ画像を取得中...")
-        header_img_url = get_pexels_image(product['pexels_query'])
-        header_id, _ = upload_image_to_wp(header_img_url)
+        # 画像① アイキャッチ
+        print("🖼️ アイキャッチ画像...")
+        header_img, _ = upload_image_to_wp(
+            get_pexels_image(product['pexels_query']), 
+            f"{product['name']} イメージ"
+        )
 
-        # --- 画像②：本文用（医学的・説明的な写真） ---
-        # "spine anatomy" や "back pain doctor" などを検索
-        print("🖼️ 本文用の解説画像を取得中...")
-        body_query = "spine anatomy doctor" # 医学的な雰囲気を狙う
-        body_img_url = get_pexels_image(body_query)
-        _, body_img_src = upload_image_to_wp(body_img_url)
+        # 画像② 本文挿入用
+        print("🖼️ 本文画像...")
+        _, body_img_src = upload_image_to_wp(
+            get_pexels_image("spine anatomy doctor"), 
+            "整体師による姿勢解説"
+        )
 
-        # --- 記事の加工：プレースホルダーを置換 ---
-        
-        # 1. [[IMAGE_CAUSE]] を 本文用画像タグ に置換
+        # 画像置換
         if body_img_src:
-            img_tag = f'<img src="{body_img_src}" alt="身体の歪みのイメージ" style="width:100%; height:auto; margin: 20px 0; border-radius: 8px;">'
+            img_tag = f'<img src="{body_img_src}" alt="姿勢の解説" style="width:100%; height:auto; margin: 20px 0; border-radius: 8px;">'
             content = content.replace("[[IMAGE_CAUSE]]", img_tag)
         else:
-            content = content.replace("[[IMAGE_CAUSE]]", "") # 画像なければ消す
+            content = content.replace("[[IMAGE_CAUSE]]", "")
 
-        # 2. [[AFFILIATE_AREA]] を 広告ボックス に置換
+        # 広告枠置換
         affiliate_box = f"""
-        <div style="margin: 40px 0; padding: 30px; background-color: #fdfdfd; border: 3px solid #e0f2f1; border-radius: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-            <h3 style="margin-top: 0; color: #00796b; font-size: 1.2em;">▼整体師おすすめの{product['name']}</h3>
-            <p style="font-size: 0.9em; color: #555;">毎日のケアで、痛みのない生活を取り戻しましょう。</p>
-            <div style="margin-top: 20px; font-weight: bold; color: #d32f2f;">
-                （ここにA8.netの広告リンクを貼り付けてください）
+        <div style="margin: 40px 0; padding: 30px; background-color: #fcfcfc; border: 2px solid #66cdaa; border-radius: 8px; text-align: center;">
+            <h3 style="margin-top:0; color:#2e8b57;">▼{product['name']}の詳細はこちら</h3>
+            <p>整体師も推奨する毎日のケアアイテムです。</p>
+            <div style="margin-top:20px; color:#d32f2f; font-weight:bold;">
+                （ここにA8.netの広告リンクを貼る）
             </div>
         </div>
         """
         content = content.replace("[[AFFILIATE_AREA]]", affiliate_box)
+        article['content'] = content
 
-        # --- 投稿 ---
-        post_to_wordpress(article['title'], content, header_id)
+        # 投稿実行
+        post_to_wordpress(article, header_img)
 
     else:
-        print("❌ 記事生成に失敗しました")
+        print("❌ 記事生成失敗")
 
 if __name__ == "__main__":
     main()
