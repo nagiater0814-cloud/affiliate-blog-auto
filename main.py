@@ -286,17 +286,17 @@ def main():
             for idx, pos in enumerate(reversed(insert_positions)):
                 img_idx = len(insert_positions) - 1 - idx
                 if img_idx < len(inserted_images):
-                    img_html = f'\n<figure style="margin: 30px 0; text-align: center;"><img src="{inserted_images[img_idx]}" alt="{product["name"]}関連画像" style="max-width: 100%; border-radius: 8px;"/></figure>\n'
+                    img_html = f'\\n<figure style="margin: 30px 0; text-align: center;"><img src="{inserted_images[img_idx]}" alt="{product["name"]}関連画像" style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);"/></figure>\\n'
                     content = content[:pos] + img_html + content[pos:]
             
             print(f"   ✅ {min(len(insert_positions), len(inserted_images))}箇所に画像を挿入")
         
-        # 広告枠
+        # 広告枠（癒し系カラー）
         affiliate_box = f"""
-<div style="margin: 40px 0; padding: 30px; background-color: #f9f9f9; border: 3px solid #66cdaa; border-radius: 10px; text-align: center;">
-    <h3 style="margin-top:0; color:#2e8b57;">▼整体師おすすめの{product['name']}</h3>
-    <p>詳細はこちら</p>
-    <div style="margin-top:20px; color:#d32f2f;">（ここに広告リンク）</div>
+<div style="margin: 40px 0; padding: 30px; background: linear-gradient(135deg, #faf8f5 0%, #f5f0e8 100%); border: 2px solid #c9b99a; border-radius: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+    <h3 style="margin-top:0; color:#6b8e6b; font-size: 1.3em;">🌿 整体師おすすめの{product['name']}</h3>
+    <p style="color:#7a6b5a; margin: 15px 0;">毎日の健康をサポートするアイテムです</p>
+    <div style="margin-top:20px; padding: 15px; background: #fff; border-radius: 10px; color:#8b7355;">（ここに広告リンク）</div>
 </div>
 """
         if "[[AFFILIATE_AREA]]" in content:
