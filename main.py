@@ -9,19 +9,18 @@ import google.generativeai as genai
 # ==========================================
 # 0. 環境設定
 # ==========================================
-# GitHub Secrets からキーを読み込む
 WP_URL = os.environ.get("WP_URL")
 WP_USER = os.environ.get("WP_USER")
 WP_APP_PASSWORD = os.environ.get("WP_APP_PASSWORD")
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Geminiの初期設定（★ここで安定版をセット！）
+# Geminiの設定（★ここを最新の軽量モデルに変更！）
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-pro')
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 # ==========================================
-# 1. 曜日別テーマ設定（先生のこだわり設定）
+# 1. 曜日別テーマ設定
 # ==========================================
 DAILY_THEMES = {
     0: {  # 月曜
@@ -76,12 +75,10 @@ DAILY_THEMES = {
 }
 
 def get_japan_weekday():
-    """日本時間の曜日を取得 (0=月曜)"""
     jst = timezone(timedelta(hours=9))
     return datetime.now(jst).weekday()
 
 def select_product():
-    """今日のテーマから商材を選ぶ"""
     weekday = get_japan_weekday()
     theme = DAILY_THEMES[weekday]
     product = random.choice(theme["products"])
@@ -90,7 +87,7 @@ def select_product():
     return product
 
 # ==========================================
-# 2. 記事作成 (Gemini Pro)
+# 2. 記事作成 (Gemini 1.5 Flash)
 # ==========================================
 def generate_article(product):
     print("📝 Gemini APIで記事を生成中...")
@@ -117,18 +114,15 @@ def generate_article(product):
     """
 
     try:
-        # ★ここが修正ポイント：余計な検索をせず、ズバリ指定！
+        # ★ここが重要！モデル名を確実に存在する 1.5-flash に指定
         response = model.generate_content(prompt)
         raw_text = response.text
 
-        # 不要なマークダウン記号を削除
         html_content = raw_text.replace("```html", "").replace("```", "").strip()
         
-        # タイトル抽出 (<h1>...</h1>)
         title_match = re.search(r"<h1>(.*?)</h1>", html_content, re.DOTALL)
         if title_match:
             title = title_match.group(1)
-            # 本文からはタイトルを削除（重複防止）
             content = html_content.replace(title_match.group(0), "").strip()
         else:
             title = f"整体師が教える！{product['name']}の選び方"
@@ -158,7 +152,6 @@ def get_pexels_image(query):
 def post_to_wordpress(title, content, image_url):
     print("🚀 WordPressへ投稿処理開始...")
     
-    # 1. 画像アップロード
     media_id = None
     if image_url:
         try:
@@ -169,7 +162,6 @@ def post_to_wordpress(title, content, image_url):
                 "Content-Type": "image/jpeg",
                 "Content-Disposition": f'attachment; filename="{filename}"'
             }
-            # 認証
             auth = (WP_USER, WP_APP_PASSWORD)
             res = requests.post(media_url, headers=headers, data=img_data, auth=auth)
             if res.status_code == 201:
@@ -178,7 +170,6 @@ def post_to_wordpress(title, content, image_url):
         except Exception as e:
             print(f"⚠️ 画像アップロード失敗: {e}")
 
-    # 2. 記事投稿
     post_url = f"{WP_URL}/wp-json/wp/v2/posts"
     
     # アフィリエイト枠（仮）
@@ -203,9 +194,6 @@ def post_to_wordpress(title, content, image_url):
     else:
         print(f"❌ 投稿失敗: {res.text}")
 
-# ==========================================
-# 4. 実行ブロック
-# ==========================================
 def main():
     print("--- 自動投稿システム開始 ---")
     product = select_product()
