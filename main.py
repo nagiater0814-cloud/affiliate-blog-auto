@@ -152,19 +152,21 @@ def get_tag_ids(keywords):
     print(f"   → 取得したタグID: {tag_ids}")
     return tag_ids
 
-def get_pexels_image(query):
-    print(f"🖼️ 画像検索中: {query}")
-    url = f"https://api.pexels.com/v1/search?query={query}&per_page=1&orientation=landscape&size=large"
+def get_pexels_images(query, count=3):
+    """Pexelsから複数の画像URLを取得"""
+    print(f"🖼️ 画像検索中: {query} ({count}枚)")
+    url = f"https://api.pexels.com/v1/search?query={query}&per_page={count}&orientation=landscape&size=large"
     headers = {"Authorization": PEXELS_API_KEY}
     try:
         res = requests.get(url, headers=headers)
         if res.status_code == 200 and res.json().get('photos'):
-            img_url = res.json()['photos'][0]['src']['large2x']
-            print(f"   ✅ 画像取得成功")
-            return img_url
+            photos = res.json()['photos']
+            urls = [p['src']['large2x'] for p in photos]
+            print(f"   ✅ {len(urls)}枚の画像を取得")
+            return urls
     except Exception as e:
         print(f"   ⚠️ 画像エラー: {e}")
-    return None
+    return []
 
 def upload_image_to_wp(image_url, alt_text):
     if not image_url:
@@ -240,13 +242,56 @@ def main():
     article = generate_article(product)
     
     if article:
-        # 5. 画像取得・アップロード
+        # 5. 複数画像取得・アップロード
         print(f"\n🖼️ 画像処理")
-        img_url = get_pexels_image(product['pexels_query'])
-        media_id = upload_image_to_wp(img_url, f"{product['name']} イメージ")
+        img_urls = get_pexels_images(product['pexels_query'], count=3)
+        
+        # アイキャッチ用（1枚目）
+        featured_media_id = None
+        if img_urls:
+            featured_media_id = upload_image_to_wp(img_urls[0], f"{product['name']} イメージ")
+        
+        # 本文挿入用の画像をアップロード（2枚目以降）
+        inserted_images = []
+        for i, url in enumerate(img_urls[1:], start=2):
+            mid = upload_image_to_wp(url, f"{product['name']} 画像{i}")
+            if mid:
+                # WordPressの画像URLを取得
+                try:
+                    auth = (WP_USER, WP_APP_PASSWORD)
+                    res = requests.get(f"{WP_URL}/wp-json/wp/v2/media/{mid}", auth=auth)
+                    if res.status_code == 200:
+                        inserted_images.append(res.json().get('source_url'))
+                except:
+                    pass
+        
+        print(f"   📸 本文挿入用画像: {len(inserted_images)}枚")
 
-        # 6. 本文加工（広告枠）
+        # 6. 本文加工（画像挿入 + 広告枠）
         content = article['content']
+        
+        # h2タグの後に画像を挿入
+        if inserted_images:
+            h2_pattern = r'(</h2>)'
+            h2_matches = list(re.finditer(h2_pattern, content, re.IGNORECASE))
+            
+            # 画像を均等に挿入（最大2箇所）
+            insert_positions = []
+            if len(h2_matches) >= 2:
+                insert_positions = [h2_matches[0].end(), h2_matches[1].end()]
+            elif len(h2_matches) == 1:
+                insert_positions = [h2_matches[0].end()]
+            
+            # 逆順で挿入（位置がずれないように）
+            for idx, pos in enumerate(reversed(insert_positions)):
+                img_idx = len(insert_positions) - 1 - idx
+                if img_idx < len(inserted_images):
+                    img_html = f'\n<figure style="margin: 30px 0; text-align: center;"><img src="{inserted_images[img_idx]}" alt="{product["name"]}関連画像" style="max-width: 100%; border-radius: 8px;"/></figure>\n'
+                    content = content[:pos] + img_html + content[pos:]
+            
+            print(f"   ✅ {min(len(insert_positions), len(inserted_images))}箇所に画像を挿入")
+        
+        # 広告枠
         affiliate_box = f"""
 <div style="margin: 40px 0; padding: 30px; background-color: #f9f9f9; border: 3px solid #66cdaa; border-radius: 10px; text-align: center;">
     <h3 style="margin-top:0; color:#2e8b57;">▼整体師おすすめの{product['name']}</h3>
@@ -263,7 +308,7 @@ def main():
 
         # 7. 投稿
         print(f"\n📮 WordPress投稿")
-        post_to_wordpress(article, media_id, category_id, tag_ids)
+        post_to_wordpress(article, featured_media_id, category_id, tag_ids)
 
     else:
         print("❌ 記事生成失敗")
