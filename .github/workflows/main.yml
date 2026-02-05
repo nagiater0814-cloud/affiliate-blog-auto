@@ -9,8 +9,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - '.github/workflows/main.yml'  # ワークフロー変更時にもテスト実行
 
 jobs:
   post:
