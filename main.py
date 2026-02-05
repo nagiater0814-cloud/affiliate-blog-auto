@@ -71,21 +71,31 @@ def generate_article(product):
     print("📝 Gemini APIでSEO記事を執筆中...")
     
     prompt = f"""
-    あなたはSEOに強い実務歴8年の整体師です。
-    以下の商品について、ブログ記事を作成してください。
+あなたは実務歴8年の整体師ブロガーです。
+以下の商品について、読者に語りかけるような自然なブログ記事を書いてください。
 
-    【商品】{product['name']}
-    【ターゲット】{product['target']}
-    【キーワード】{', '.join(product['keywords'])}
+【商品】{product['name']}
+【ターゲットの悩み】{product['target']}
 
-    【出力構成（区切り文字: [[DELIMITER]]）】
-    1. SEOタイトル (32文字以内)
-    [[DELIMITER]]
-    2. メタディスクリプション (120文字前後)
-    [[DELIMITER]]
-    3. 記事本文 (HTML bodyのみ)
-       - 見出し(h2)を使い、[[AFFILIATE_AREA]] という文字列を必ず含めること。
-    """
+【重要なルール】
+- 「SEOタイトル」「メタディスクリプション」などの見出しラベルは絶対に書かないこと
+- 説明文や前置きは一切不要。いきなり本文を書くこと
+- \\nなどのエスケープ文字は使わないこと
+- マークダウン記法（# や ### など）は使わないこと
+
+【出力フォーマット】
+以下の3つを [[DELIMITER]] で区切って出力してください。
+
+読者の心に響く魅力的なタイトル（32文字以内）
+[[DELIMITER]]
+記事の要約文（120文字程度）
+[[DELIMITER]]
+記事本文（HTML形式）
+- <h2>で見出しを作成
+- <p>で段落を作成
+- 記事中盤に [[AFFILIATE_AREA]] を必ず1つ配置
+- 整体師としての経験談や専門知識を自然に織り交ぜる
+"""
 
     try:
         response = model.generate_content(prompt)
@@ -95,10 +105,25 @@ def generate_article(product):
             print(f"⚠️ 記事パース失敗: パーツ数={len(parts)}")
             return None
 
+        # クリーンアップ処理
+        def clean_text(text):
+            text = text.strip()
+            # エスケープ文字を削除
+            text = text.replace("\\n", " ").replace("\\t", " ")
+            # マークダウン記号を削除
+            text = text.replace("###", "").replace("##", "").replace("#", "")
+            # 余計なラベルを削除
+            text = text.replace("SEOタイトル:", "").replace("SEOタイトル：", "")
+            text = text.replace("メタディスクリプション:", "").replace("メタディスクリプション：", "")
+            text = text.replace("記事本文:", "").replace("記事本文：", "")
+            # コードブロックを削除
+            text = text.replace("```html", "").replace("```", "")
+            return text.strip()
+
         return {
-            "seo_title": parts[0].strip(),
-            "meta_desc": parts[1].strip(),
-            "content": parts[2].strip().replace("```html", "").replace("```", "")
+            "seo_title": clean_text(parts[0]),
+            "meta_desc": clean_text(parts[1]),
+            "content": clean_text(parts[2])
         }
     except Exception as e:
         print(f"❌ Geminiエラー: {e}")
