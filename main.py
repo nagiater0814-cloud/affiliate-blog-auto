@@ -108,8 +108,10 @@ def generate_article(product):
         # クリーンアップ処理
         def clean_text(text):
             text = text.strip()
-            # エスケープ文字を削除
+            # エスケープ文字を削除（バックスラッシュ版と円記号版の両方）
             text = text.replace("\\n", " ").replace("\\t", " ")
+            text = text.replace("¥n", " ").replace("¥t", " ")
+            text = text.replace("\n", " ").replace("\t", " ")
             # マークダウン記号を削除
             text = text.replace("###", "").replace("##", "").replace("#", "")
             # 余計なラベルを削除
