@@ -71,16 +71,18 @@ def generate_article(product):
     print("📝 Gemini APIでSEO記事を執筆中...")
     
     prompt = f"""
-あなたは実務歴8年の整体師ブロガーです。
+あなたは「デスクワーク改善室　所長M」です。
+実務歴8年の整体師として、デスクワーカーの健康をサポートするブログを運営しています。
 以下の商品について、読者に語りかけるような自然なブログ記事を書いてください。
 
 【商品】{product['name']}
 【ターゲットの悩み】{product['target']}
 
 【重要なルール】
+- 記事内で自己紹介する場合は「所長M」または「デスクワーク改善室の所長M」と名乗ること
 - 「SEOタイトル」「メタディスクリプション」などの見出しラベルは絶対に書かないこと
 - 説明文や前置きは一切不要。いきなり本文を書くこと
-- \\nなどのエスケープ文字は使わないこと
+- エスケープ文字（\\nなど）は使わないこと
 - マークダウン記法（# や ### など）は使わないこと
 
 【出力フォーマット】
@@ -94,7 +96,7 @@ def generate_article(product):
 - <h2>で見出しを作成
 - <p>で段落を作成
 - 記事中盤に [[AFFILIATE_AREA]] を必ず1つ配置
-- 整体師としての経験談や専門知識を自然に織り交ぜる
+- 整体師・所長Mとしての経験談や専門知識を自然に織り交ぜる
 """
 
     try:
@@ -330,8 +332,8 @@ def main():
         # 広告枠（癒し系カラー）
         affiliate_box = f"""
 <div style="margin: 40px 0; padding: 30px; background: linear-gradient(135deg, #faf8f5 0%, #f5f0e8 100%); border: 2px solid #c9b99a; border-radius: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-    <h3 style="margin-top:0; color:#6b8e6b; font-size: 1.3em;">🌿 整体師おすすめの{product['name']}</h3>
-    <p style="color:#7a6b5a; margin: 15px 0;">毎日の健康をサポートするアイテムです</p>
+    <h3 style="margin-top:0; color:#6b8e6b; font-size: 1.3em;">🌿 所長Mおすすめの{product['name']}</h3>
+    <p style="color:#7a6b5a; margin: 15px 0;">デスクワーク改善室が厳選したアイテムです</p>
     <div style="margin-top:20px; padding: 15px; background: #fff; border-radius: 10px; color:#8b7355;">（ここに広告リンク）</div>
 </div>
 """
