@@ -14,6 +14,8 @@ WP_USER = os.environ.get("WP_USER")
 WP_APP_PASSWORD = os.environ.get("WP_APP_PASSWORD")
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+RAKUTEN_APP_ID = os.environ.get("RAKUTEN_APP_ID")
+RAKUTEN_AFFILIATE_ID = os.environ.get("RAKUTEN_AFFILIATE_ID")
 
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-flash-latest')
@@ -65,7 +67,57 @@ def select_product():
     return product, theme['category']
 
 # ==========================================
-# 2. 記事作成
+# 2. 楽天アフィリエイト商品検索
+# ==========================================
+def search_rakuten_product(keyword):
+    """楽天市場から商品を検索してアフィリエイトリンクを取得"""
+    if not RAKUTEN_APP_ID or not RAKUTEN_AFFILIATE_ID:
+        print("   ⚠️ 楽天APIキーが設定されていません")
+        return None
+    
+    print(f"🛒 楽天で商品検索中: {keyword}")
+    
+    try:
+        url = "https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706"
+        params = {
+            "applicationId": RAKUTEN_APP_ID,
+            "affiliateId": RAKUTEN_AFFILIATE_ID,
+            "keyword": keyword,
+            "hits": 3,  # 上位3件を取得
+            "sort": "+reviewCount",  # レビュー数順
+            "imageFlag": 1
+        }
+        
+        response = requests.get(url, params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            items = data.get("Items", [])
+            
+            if items:
+                # 最もレビューが多い商品を選択
+                best_item = items[0]["Item"]
+                result = {
+                    "name": best_item["itemName"][:50],  # 名前を短縮
+                    "price": best_item["itemPrice"],
+                    "url": best_item.get("affiliateUrl") or best_item["itemUrl"],
+                    "image": best_item["mediumImageUrls"][0]["imageUrl"] if best_item.get("mediumImageUrls") else None,
+                    "shop": best_item["shopName"],
+                    "review_count": best_item.get("reviewCount", 0)
+                }
+                print(f"   ✅ 商品発見: {result['name'][:30]}... ({result['price']:,}円)")
+                return result
+            else:
+                print("   ⚠️ 商品が見つかりませんでした")
+        else:
+            print(f"   ⚠️ 楽天API エラー: {response.status_code}")
+    except Exception as e:
+        print(f"   ❌ 楽天検索エラー: {e}")
+    
+    return None
+
+# ==========================================
+# 3. 記事作成
 # ==========================================
 def generate_article(product):
     print("📝 Gemini APIでSEO記事を執筆中...")
@@ -329,14 +381,36 @@ def main():
             
             print(f"   ✅ {min(len(insert_positions), len(inserted_images))}箇所に画像を挿入")
         
-        # 広告枠（癒し系カラー）
-        affiliate_box = f"""
+        # 楽天商品検索とアフィリエイト枠作成
+        print(f"\n🛒 アフィリエイト処理")
+        rakuten_product = search_rakuten_product(product['name'])
+        
+        if rakuten_product:
+            # 楽天商品が見つかった場合
+            affiliate_box = f"""
+<div style="margin: 40px 0; padding: 25px; background: linear-gradient(135deg, #faf8f5 0%, #f5f0e8 100%); border: 2px solid #c9b99a; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+    <h3 style="margin-top:0; color:#6b8e6b; font-size: 1.2em; text-align:center;">🌿 所長Mおすすめの{product['name']}</h3>
+    <div style="display: flex; align-items: center; gap: 20px; margin: 20px 0; flex-wrap: wrap; justify-content: center;">
+        <img src="{rakuten_product['image'] or ''}" alt="{rakuten_product['name']}" style="max-width: 150px; border-radius: 8px; border: 1px solid #e8e4df;" />
+        <div style="flex: 1; min-width: 200px;">
+            <p style="font-weight: bold; color:#5a4a3a; margin: 0 0 10px 0; font-size: 0.95em;">{rakuten_product['name']}</p>
+            <p style="color:#d32f2f; font-size: 1.3em; font-weight: bold; margin: 0 0 5px 0;">¥{rakuten_product['price']:,}</p>
+            <p style="color:#888; font-size: 0.85em; margin: 0;">{rakuten_product['shop']}</p>
+        </div>
+    </div>
+    <a href="{rakuten_product['url']}" target="_blank" rel="nofollow sponsored" style="display: block; background: linear-gradient(135deg, #bf0000 0%, #e60033 100%); color: #fff; padding: 15px 30px; border-radius: 30px; text-decoration: none; font-weight: bold; text-align: center; margin-top: 15px;">楽天市場で詳細を見る</a>
+</div>
+"""
+        else:
+            # 商品が見つからなかった場合（フォールバック）
+            affiliate_box = f"""
 <div style="margin: 40px 0; padding: 30px; background: linear-gradient(135deg, #faf8f5 0%, #f5f0e8 100%); border: 2px solid #c9b99a; border-radius: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
     <h3 style="margin-top:0; color:#6b8e6b; font-size: 1.3em;">🌿 所長Mおすすめの{product['name']}</h3>
     <p style="color:#7a6b5a; margin: 15px 0;">デスクワーク改善室が厳選したアイテムです</p>
-    <div style="margin-top:20px; padding: 15px; background: #fff; border-radius: 10px; color:#8b7355;">（ここに広告リンク）</div>
+    <a href="https://search.rakuten.co.jp/search/mall/{product['name']}/" target="_blank" rel="nofollow" style="display: inline-block; background: linear-gradient(135deg, #bf0000 0%, #e60033 100%); color: #fff; padding: 12px 25px; border-radius: 25px; text-decoration: none; font-weight: bold;">楽天市場で探す</a>
 </div>
 """
+        
         if "[[AFFILIATE_AREA]]" in content:
             content = content.replace("[[AFFILIATE_AREA]]", affiliate_box)
         else:
