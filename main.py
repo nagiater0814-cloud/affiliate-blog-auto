@@ -338,10 +338,18 @@ def post_to_wordpress(article_data, media_id, category_id, tag_ids):
     print("🚀 WordPressへ投稿処理開始...")
     post_url = f"{WP_URL}/wp-json/wp/v2/posts"
     
+    # 翌日19:00 JSTに予約
+    jst = timezone(timedelta(hours=9))
+    tomorrow_7pm = datetime.now(jst).replace(hour=19, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    schedule_date = tomorrow_7pm.strftime("%Y-%m-%dT%H:%M:%S")
+    
+    print(f"   📅 予約投稿: {tomorrow_7pm.strftime('%Y年%m月%d日 %H:%M')} JST")
+    
     payload = {
         "title": article_data['seo_title'],
         "content": article_data['content'],
-        "status": "draft",
+        "status": "future",
+        "date": schedule_date,
         "featured_media": media_id if media_id else 0,
         "categories": [category_id] if category_id else [],
         "tags": tag_ids if tag_ids else [],
@@ -353,9 +361,10 @@ def post_to_wordpress(article_data, media_id, category_id, tag_ids):
     res = requests.post(post_url, json=payload, auth=(WP_USER, WP_APP_PASSWORD))
     if res.status_code == 201:
         post_data = res.json()
-        print(f"🎉 投稿成功！")
-        print(f"   下書きURL: {post_data.get('link')}")
+        print(f"🎉 予約投稿成功！")
+        print(f"   投稿URL: {post_data.get('link')}")
         print(f"   投稿ID: {post_data.get('id')}")
+        print(f"   公開予定: {tomorrow_7pm.strftime('%Y/%m/%d %H:%M')} JST")
         print(f"   カテゴリ: {post_data.get('categories')}")
         print(f"   タグ: {post_data.get('tags')}")
     else:
