@@ -98,12 +98,13 @@ def search_rakuten_product(keyword):
                 # 最もレビューが多い商品を選択
                 best_item = items[0]["Item"]
                 result = {
-                    "name": best_item["itemName"][:50],  # 名前を短縮
+                    "name": best_item["itemName"][:50],
                     "price": best_item["itemPrice"],
                     "url": best_item.get("affiliateUrl") or best_item["itemUrl"],
                     "image": best_item["mediumImageUrls"][0]["imageUrl"] if best_item.get("mediumImageUrls") else None,
                     "shop": best_item["shopName"],
-                    "review_count": best_item.get("reviewCount", 0)
+                    "review_count": best_item.get("reviewCount", 0),
+                    "item_code": best_item.get("itemCode", "")
                 }
                 print(f"   ✅ 商品発見: {result['name'][:30]}... ({result['price']:,}円)")
                 return result
@@ -115,6 +116,47 @@ def search_rakuten_product(keyword):
         print(f"   ❌ 楽天検索エラー: {e}")
     
     return None
+
+def create_pochipp_product(rakuten_product):
+    """楽天商品をポチップに登録してショートコードIDを取得"""
+    print(f"📦 ポチップに商品を登録中...")
+    
+    try:
+        auth = (WP_USER, WP_APP_PASSWORD)
+        
+        # ポチップのカスタム投稿タイプで商品を作成
+        pochipp_data = {
+            "title": rakuten_product["name"],
+            "status": "publish",
+            "meta": {
+                "pochipp_pid_rakuten": rakuten_product.get("item_code", ""),
+                "pochipp_title_rakuten": rakuten_product["name"],
+                "pochipp_price_rakuten": str(rakuten_product["price"]),
+                "pochipp_url_rakuten": rakuten_product["url"],
+                "pochipp_img_rakuten": rakuten_product.get("image", ""),
+                "pochipp_img": rakuten_product.get("image", ""),
+                "pochipp_shop_rakuten": rakuten_product.get("shop", ""),
+            }
+        }
+        
+        # ポチップのREST APIエンドポイント
+        res = requests.post(
+            f"{WP_URL}/wp-json/wp/v2/pochipps",
+            json=pochipp_data,
+            auth=auth
+        )
+        
+        if res.status_code == 201:
+            pochipp_id = res.json().get("id")
+            print(f"   ✅ ポチップ登録成功: ID={pochipp_id}")
+            return pochipp_id
+        else:
+            print(f"   ⚠️ ポチップ登録失敗: {res.status_code}")
+            print(f"   レスポンス: {res.text[:200]}")
+            return None
+    except Exception as e:
+        print(f"   ❌ ポチップエラー: {e}")
+        return None
 
 # ==========================================
 # 3. 記事作成
@@ -401,33 +443,33 @@ def main():
             
             print(f"   ✅ {min(len(insert_positions), len(inserted_images))}箇所に画像を挿入")
         
-        # 楽天商品検索とアフィリエイト枠作成（キーワードで関連商品を検索）
-        print(f"\n🛒 アフィリエイト処理")
+        # 楽天商品検索とポチップ自動登録
+        print(f"\n🛒 アフィリエイト処理（ポチップ）")
         search_keyword = f"{product['name']} {product['keywords'][0]}" if product.get('keywords') else product['name']
         rakuten_product = search_rakuten_product(search_keyword)
         
+        affiliate_box = ""
         if rakuten_product:
-            # 楽天商品が見つかった場合
-            affiliate_box = f"""
-<div style="margin: 40px 0; padding: 25px; background: linear-gradient(135deg, #faf8f5 0%, #f5f0e8 100%); border: 2px solid #c9b99a; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-    <h3 style="margin-top:0; color:#6b8e6b; font-size: 1.2em; text-align:center;">🌿 所長Mおすすめの{product['name']}</h3>
-    <div style="display: flex; align-items: center; gap: 20px; margin: 20px 0; flex-wrap: wrap; justify-content: center;">
-        <img src="{rakuten_product['image'] or ''}" alt="{rakuten_product['name']}" style="max-width: 150px; border-radius: 8px; border: 1px solid #e8e4df;" />
-        <div style="flex: 1; min-width: 200px;">
-            <p style="font-weight: bold; color:#5a4a3a; margin: 0 0 10px 0; font-size: 0.95em;">{rakuten_product['name']}</p>
-            <p style="color:#d32f2f; font-size: 1.3em; font-weight: bold; margin: 0 0 5px 0;">¥{rakuten_product['price']:,}</p>
-            <p style="color:#888; font-size: 0.85em; margin: 0;">{rakuten_product['shop']}</p>
-        </div>
-    </div>
-    <a href="{rakuten_product['url']}" target="_blank" rel="nofollow sponsored" style="display: block; background: linear-gradient(135deg, #bf0000 0%, #e60033 100%); color: #fff; padding: 15px 30px; border-radius: 30px; text-decoration: none; font-weight: bold; text-align: center; margin-top: 15px;">楽天市場で詳細を見る</a>
+            # ポチップに商品を登録
+            pochipp_id = create_pochipp_product(rakuten_product)
+            
+            if pochipp_id:
+                # ポチップショートコードを挿入
+                affiliate_box = f'\n<!-- wp:pochipp/linkbox {{"pochippId":{pochipp_id}}} -->\n[pochipp id="{pochipp_id}"]\n<!-- /wp:pochipp/linkbox -->\n'
+                print(f"   ✅ ポチップショートコード挿入: [pochipp id=\"{pochipp_id}\"]")
+            else:
+                # ポチップ登録失敗時はフォールバック
+                affiliate_box = f"""
+<div style="margin: 40px 0; padding: 30px; background: linear-gradient(135deg, #faf8f5 0%, #f5f0e8 100%); border: 2px solid #c9b99a; border-radius: 15px; text-align: center;">
+    <h3 style="margin-top:0; color:#6b8e6b;">🌿 所長Mおすすめの{product['name']}</h3>
+    <a href="{rakuten_product['url']}" target="_blank" rel="nofollow sponsored" style="display: inline-block; background: linear-gradient(135deg, #bf0000 0%, #e60033 100%); color: #fff; padding: 12px 25px; border-radius: 25px; text-decoration: none; font-weight: bold;">楽天市場で詳細を見る</a>
 </div>
 """
         else:
-            # 商品が見つからなかった場合（フォールバック）
+            # 商品が見つからない場合
             affiliate_box = f"""
-<div style="margin: 40px 0; padding: 30px; background: linear-gradient(135deg, #faf8f5 0%, #f5f0e8 100%); border: 2px solid #c9b99a; border-radius: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-    <h3 style="margin-top:0; color:#6b8e6b; font-size: 1.3em;">🌿 所長Mおすすめの{product['name']}</h3>
-    <p style="color:#7a6b5a; margin: 15px 0;">デスクワーク改善室が厳選したアイテムです</p>
+<div style="margin: 40px 0; padding: 30px; background: linear-gradient(135deg, #faf8f5 0%, #f5f0e8 100%); border: 2px solid #c9b99a; border-radius: 15px; text-align: center;">
+    <h3 style="margin-top:0; color:#6b8e6b;">🌿 所長Mおすすめの{product['name']}</h3>
     <a href="https://search.rakuten.co.jp/search/mall/{product['name']}/" target="_blank" rel="nofollow" style="display: inline-block; background: linear-gradient(135deg, #bf0000 0%, #e60033 100%); color: #fff; padding: 12px 25px; border-radius: 25px; text-decoration: none; font-weight: bold;">楽天市場で探す</a>
 </div>
 """
