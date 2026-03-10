@@ -177,26 +177,29 @@ def generate_article(product):
             return None
 
         # クリーンアップ処理
-        def clean_text(text):
+        def clean_text(text, is_html=False):
             text = text.strip()
-            # エスケープ文字を削除（バックスラッシュ版と円記号版の両方）
-            text = text.replace("\\n", " ").replace("\\t", " ")
-            text = text.replace("¥n", " ").replace("¥t", " ")
-            text = text.replace("\n", " ").replace("\t", " ")
+            # リテラルな\nや¥nを削除（全パターン対応）
+            text = re.sub(r'\\n', ' ', text)
+            text = re.sub(r'￥n', ' ', text)
+            text = text.replace('¥n', ' ').replace('¥t', ' ')
             # マークダウン記号を削除
-            text = text.replace("###", "").replace("##", "").replace("#", "")
+            text = re.sub(r'^#{1,3}\s*', '', text, flags=re.MULTILINE)
             # 余計なラベルを削除
-            text = text.replace("SEOタイトル:", "").replace("SEOタイトル：", "")
-            text = text.replace("メタディスクリプション:", "").replace("メタディスクリプション：", "")
-            text = text.replace("記事本文:", "").replace("記事本文：", "")
+            for label in ['SEOタイトル', 'メタディスクリプション', '記事本文', '1.', '2.', '3.']:
+                text = text.replace(f'{label}:', '').replace(f'{label}：', '')
             # コードブロックを削除
-            text = text.replace("```html", "").replace("```", "")
+            text = text.replace('```html', '').replace('```', '')
+            if not is_html:
+                # タイトル・メタはシングルライン化
+                text = text.replace('\n', ' ').replace('\r', ' ')
+                text = re.sub(r'\s+', ' ', text)
             return text.strip()
 
         return {
             "seo_title": clean_text(parts[0]),
             "meta_desc": clean_text(parts[1]),
-            "content": clean_text(parts[2])
+            "content": clean_text(parts[2], is_html=True)
         }
     except Exception as e:
         print(f"❌ Geminiエラー: {e}")
@@ -393,14 +396,15 @@ def main():
             for idx, pos in enumerate(reversed(insert_positions)):
                 img_idx = len(insert_positions) - 1 - idx
                 if img_idx < len(inserted_images):
-                    img_html = f'\\n<figure style="margin: 30px 0; text-align: center;"><img src="{inserted_images[img_idx]}" alt="{product["name"]}関連画像" style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);"/></figure>\\n'
+                    img_html = f'<figure style="margin: 30px 0; text-align: center;"><img src="{inserted_images[img_idx]}" alt="{product["name"]}関連画像" style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);"/></figure>'
                     content = content[:pos] + img_html + content[pos:]
             
             print(f"   ✅ {min(len(insert_positions), len(inserted_images))}箇所に画像を挿入")
         
-        # 楽天商品検索とアフィリエイト枠作成
+        # 楽天商品検索とアフィリエイト枠作成（キーワードで関連商品を検索）
         print(f"\n🛒 アフィリエイト処理")
-        rakuten_product = search_rakuten_product(product['name'])
+        search_keyword = f"{product['name']} {product['keywords'][0]}" if product.get('keywords') else product['name']
+        rakuten_product = search_rakuten_product(search_keyword)
         
         if rakuten_product:
             # 楽天商品が見つかった場合
